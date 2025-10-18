@@ -1,5 +1,7 @@
 pub mod config;
 
+#[cfg(feature = "otel")]
+pub mod langsmith_exporter;
 pub mod otel_event_manager;
 #[cfg(feature = "otel")]
 pub mod otel_provider;
