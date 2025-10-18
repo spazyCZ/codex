@@ -43,6 +43,15 @@ pub fn build_provider(
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect(),
         },
+        Kind::Langsmith {
+            api_key,
+            endpoint,
+            project,
+        } => OtelExporter::Langsmith {
+            api_key: api_key.clone(),
+            endpoint: endpoint.clone(),
+            project: project.clone(),
+        },
     };
 
     OtelProvider::from(&OtelSettings {

@@ -88,6 +88,7 @@ Codex CLI supports a rich set of configuration options, with preferences stored 
 - [**Advanced**](./docs/advanced.md)
   - [Tracing / verbose logging](./docs/advanced.md#tracing--verbose-logging)
   - [Model Context Protocol (MCP)](./docs/advanced.md#model-context-protocol-mcp)
+  - [LangSmith integration for agent observability](./docs/langsmith.md)
 - [**Zero data retention (ZDR)**](./docs/zdr.md)
 - [**Contributing**](./docs/contributing.md)
 - [**Install & build**](./docs/install.md)

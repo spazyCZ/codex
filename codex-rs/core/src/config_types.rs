@@ -14,6 +14,11 @@ use serde::Serialize;
 use serde::de::Error as SerdeError;
 
 pub const DEFAULT_OTEL_ENVIRONMENT: &str = "dev";
+const DEFAULT_LANGSMITH_ENDPOINT: &str = "https://api.smith.langchain.com";
+
+fn default_langsmith_endpoint() -> String {
+    DEFAULT_LANGSMITH_ENDPOINT.to_owned()
+}
 
 #[derive(Serialize, Debug, Clone, PartialEq)]
 pub struct McpServerConfig {
@@ -305,6 +310,13 @@ pub enum OtelExporterKind {
     OtlpGrpc {
         endpoint: String,
         headers: HashMap<String, String>,
+    },
+    Langsmith {
+        api_key: String,
+        #[serde(default = "default_langsmith_endpoint")]
+        endpoint: String,
+        #[serde(default)]
+        project: Option<String>,
     },
 }
 

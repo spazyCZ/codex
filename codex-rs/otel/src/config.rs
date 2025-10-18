@@ -30,4 +30,9 @@ pub enum OtelExporter {
         headers: HashMap<String, String>,
         protocol: OtelHttpProtocol,
     },
+    Langsmith {
+        api_key: String,
+        endpoint: String,
+        project: Option<String>,
+    },
 }

@@ -1,6 +1,8 @@
 use crate::config::OtelExporter;
 use crate::config::OtelHttpProtocol;
 use crate::config::OtelSettings;
+#[cfg(feature = "otel")]
+use crate::langsmith_exporter::LangsmithExporter;
 use opentelemetry::KeyValue;
 use opentelemetry_otlp::LogExporter;
 use opentelemetry_otlp::Protocol;
@@ -85,6 +87,18 @@ impl OtelProvider {
                     .with_protocol(protocol)
                     .with_headers(headers.clone())
                     .build()?;
+
+                builder = builder.with_batch_exporter(exporter);
+            }
+            OtelExporter::Langsmith {
+                api_key,
+                endpoint,
+                project,
+            } => {
+                debug!("Using LangSmith exporter: {}", endpoint);
+
+                let exporter =
+                    LangsmithExporter::new(api_key.clone(), endpoint.clone(), project.clone());
 
                 builder = builder.with_batch_exporter(exporter);
             }
