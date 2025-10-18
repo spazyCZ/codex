@@ -657,7 +657,8 @@ function describeError(error: unknown): string {
 function isModuleNotFound(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const err = error as { code?: string; message?: string };
-  return err.code === "ERR_MODULE_NOT_FOUND" || err.message?.includes("Cannot find module");
+  const messageMatches = err.message?.includes("Cannot find module") ?? false;
+  return err.code === "ERR_MODULE_NOT_FOUND" || messageMatches;
 }
 
 async function safeReadBody(response: { text: () => Promise<string> }): Promise<string> {
