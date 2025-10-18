@@ -1,8 +1,13 @@
-use opentelemetry_sdk::error::{OTelSdkError, OTelSdkResult};
-use opentelemetry_sdk::logs::{LogBatch, LogExporter};
+use opentelemetry_sdk::error::OTelSdkError;
+use opentelemetry_sdk::error::OTelSdkResult;
+use opentelemetry_sdk::logs::LogBatch;
+use opentelemetry_sdk::logs::LogExporter;
 use opentelemetry_sdk::logs::SdkLogRecord as LogRecord;
-use reqwest::header::{HeaderMap, HeaderValue, CONTENT_TYPE};
-use serde_json::{json, Value};
+use reqwest::header::CONTENT_TYPE;
+use reqwest::header::HeaderMap;
+use reqwest::header::HeaderValue;
+use serde_json::Value;
+use serde_json::json;
 use std::fmt;
 use tracing::debug;
 
@@ -39,7 +44,7 @@ impl LangsmithExporter {
     fn convert_to_langsmith_trace(&self, record: &LogRecord) -> Value {
         // Use debug formatting to capture record data
         let record_str = format!("{record:?}");
-        
+
         let mut trace = json!({
             "name": "codex_event",
             "start_time": chrono::Utc::now().to_rfc3339(),
@@ -116,4 +121,48 @@ impl LogExporter for LangsmithExporter {
     }
 
     fn set_resource(&mut self, _resource: &opentelemetry_sdk::Resource) {}
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_langsmith_exporter_creation() {
+        let exporter = LangsmithExporter::new(
+            "test-api-key".to_string(),
+            "https://api.smith.langchain.com".to_string(),
+            Some("test-project".to_string()),
+        );
+
+        assert_eq!(exporter.endpoint, "https://api.smith.langchain.com");
+        assert_eq!(exporter.project, Some("test-project".to_string()));
+    }
+
+    #[test]
+    fn test_langsmith_exporter_without_project() {
+        let exporter = LangsmithExporter::new(
+            "test-api-key".to_string(),
+            "https://api.smith.langchain.com".to_string(),
+            None,
+        );
+
+        assert_eq!(exporter.endpoint, "https://api.smith.langchain.com");
+        assert_eq!(exporter.project, None);
+    }
+
+    #[test]
+    fn test_debug_impl() {
+        let exporter = LangsmithExporter::new(
+            "test-api-key".to_string(),
+            "https://api.smith.langchain.com".to_string(),
+            Some("test-project".to_string()),
+        );
+
+        let debug_str = format!("{exporter:?}");
+        assert!(debug_str.contains("LangsmithExporter"));
+        assert!(debug_str.contains("api.smith.langchain.com"));
+        // API key should not be in debug output
+        assert!(!debug_str.contains("test-api-key"));
+    }
 }
