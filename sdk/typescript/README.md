@@ -50,6 +50,29 @@ for await (const event of events) {
 }
 ```
 
+### LangSmith tracing
+
+Capture every Codex decision inside [LangSmith](https://smith.langchain.com) for rich debugging, auditing, or post-run analytics. The SDK mirrors the agent event stream into LangSmith runs, including plans, reasoning messages, shell commands, MCP tool invocations, file changes, web searches, token usage, and final responses.
+
+```bash
+pnpm add langsmith
+```
+
+```typescript
+import { Codex } from "@openai/codex-sdk";
+
+const codex = new Codex({
+  langSmith: {
+    project: "codex-observability",
+    tags: ["agent", "cli"],
+  },
+});
+
+const turn = await codex.startThread().run("Refactor the logging pipeline");
+```
+
+When no options are provided, the integration automatically picks up `LANGSMITH_API_KEY`/`LANGCHAIN_API_KEY`, `LANGSMITH_PROJECT`/`LANGCHAIN_PROJECT`, `LANGSMITH_ENDPOINT`/`LANGCHAIN_ENDPOINT`, and tracing toggles such as `LANGSMITH_TRACING_V2` or `LANGCHAIN_TRACING_V2`. Publishing failures are logged as warnings and never interrupt agent execution.
+
 ### Structured output
 
 The Codex agent can produce a JSON response that conforms to a specified schema. The schema can be provided for each turn as a plain JSON object.
