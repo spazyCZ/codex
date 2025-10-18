@@ -1,0 +1,46 @@
+# Example Codex Configuration with LangSmith Integration
+
+# LangSmith Integration Example
+# This configuration enables comprehensive observability of Codex agent behavior
+# using LangSmith (https://smith.langchain.com/)
+
+[otel]
+# Mark traces with environment (dev, staging, prod, test)
+environment = "dev"
+
+# Whether to log the actual user prompt text in traces
+# Set to true to include prompt content, false to redact for privacy
+log_user_prompt = false
+
+# Configure LangSmith as the OTEL exporter
+exporter = { langsmith = {
+    # Your LangSmith API key (get from https://smith.langchain.com/settings)
+    # It's recommended to use environment variables for sensitive data
+    api_key = "${LANGSMITH_API_KEY}",
+    
+    # Optional: LangSmith API endpoint (defaults to https://api.smith.langchain.com)
+    # endpoint = "https://api.smith.langchain.com",
+    
+    # Optional: Project name in LangSmith to organize your traces
+    # If not specified, traces will go to your default project
+    project = "codex-agent-observability"
+}}
+
+# Alternative: OTLP HTTP exporter configuration
+# [otel]
+# exporter = { otlp-http = {
+#     endpoint = "https://otel.example.com/v1/logs",
+#     protocol = "binary",
+#     headers = { "x-otlp-api-key" = "${OTLP_TOKEN}" }
+# }}
+
+# Alternative: OTLP gRPC exporter configuration
+# [otel]
+# exporter = { otlp-grpc = {
+#     endpoint = "https://otel.example.com:4317",
+#     headers = { "x-otlp-meta" = "abc123" }
+# }}
+
+# To disable OTEL export:
+# [otel]
+# exporter = "none"

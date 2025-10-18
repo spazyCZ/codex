@@ -595,6 +595,25 @@ Set `otel.exporter` to control where events go:
   }}
   ```
 
+- `langsmith` – sends traces to [LangSmith](https://smith.langchain.com/) for comprehensive observability into agent planning and reasoning. Provide your LangSmith API key and optionally a project name:
+
+  ```toml
+  [otel]
+  exporter = { langsmith = {
+    api_key = "${LANGSMITH_API_KEY}",
+    endpoint = "https://api.smith.langchain.com",  # optional, defaults to this
+    project = "my-codex-project"  # optional
+  }}
+  ```
+
+  The LangSmith integration captures all agent events including conversation starts, API requests, user prompts, tool decisions, and tool results. Each event is sent as a trace to LangSmith where you can analyze agent behavior, debug issues, and optimize performance.
+
+  To get started with LangSmith:
+  1. Sign up at [smith.langchain.com](https://smith.langchain.com/)
+  2. Get your API key from Settings
+  3. Set `LANGSMITH_API_KEY` environment variable or configure directly in config.toml
+  4. Optionally create a project in LangSmith and specify its name in the config
+
 If the exporter is `none` nothing is written anywhere; otherwise you must run or point to your
 own collector. All exporters run on a background batch worker that is flushed on
 shutdown.
