@@ -5,6 +5,7 @@ import { ThreadItem } from "./items";
 import { ThreadOptions } from "./threadOptions";
 import { TurnOptions } from "./turnOptions";
 import { createOutputSchemaFile } from "./outputSchemaFile";
+import { createLangSmithTracer } from "./langsmith";
 
 /** Completed turn. */
 export type Turn = {
@@ -63,6 +64,13 @@ export class Thread {
   ): AsyncGenerator<ThreadEvent> {
     const { schemaPath, cleanup } = await createOutputSchemaFile(turnOptions.outputSchema);
     const options = this._threadOptions;
+    const tracer = await createLangSmithTracer({
+      options: this._options.langSmith,
+      input,
+      threadId: this._id,
+      threadOptions: options,
+      turnOptions,
+    });
     const generator = this._exec.run({
       input,
       baseUrl: this._options.baseUrl,
@@ -74,6 +82,7 @@ export class Thread {
       skipGitRepoCheck: options?.skipGitRepoCheck,
       outputSchemaFile: schemaPath,
     });
+    let capturedError: unknown;
     try {
       for await (const item of generator) {
         let parsed: ThreadEvent;
@@ -85,9 +94,24 @@ export class Thread {
         if (parsed.type === "thread.started") {
           this._id = parsed.thread_id;
         }
+        try {
+          await tracer?.handleEvent(parsed);
+        } catch (tracerError) {
+          console.warn("Failed to forward event to LangSmith", tracerError);
+        }
         yield parsed;
       }
+    } catch (error) {
+      capturedError = error;
+      throw error;
     } finally {
+      if (tracer) {
+        try {
+          await tracer.finalize(capturedError);
+        } catch (tracerError) {
+          console.warn("Failed to finalize LangSmith tracing", tracerError);
+        }
+      }
       await cleanup();
     }
   }

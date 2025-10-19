@@ -14,6 +14,48 @@ By comparison, the non-interactive mode (`codex exec`) defaults to `RUST_LOG=err
 
 See the Rust documentation on [`RUST_LOG`](https://docs.rs/env_logger/latest/env_logger/#enabling-logging) for more information on the configuration options.
 
+### LangSmith agent tracing
+
+Codex can export every planning, reasoning, and execution step to [LangSmith](https://smith.langchain.com) for deep debugging. The TypeScript SDK automatically streams all JSON events emitted by `codex exec` (plans, reasoning chains, shell commands, file changes, MCP tool calls, final responses, and token usage) into a structured LangSmith trace.
+
+To enable the integration:
+
+1. Install the optional LangSmith client alongside the SDK:
+
+   ```bash
+   pnpm add langsmith
+   ```
+
+2. Provide LangSmith credentials. You can either set environment variables or pass options when constructing the SDK:
+
+   ```ts
+   import { Codex } from "@openai/codex-sdk";
+
+   const codex = new Codex({
+     langSmith: {
+       project: "codex-traces",
+       tags: ["cli"],
+     },
+   });
+   ```
+
+   The integration reads the following variables when options are omitted:
+
+   - `LANGSMITH_API_KEY` (or `LANGCHAIN_API_KEY`)
+   - `LANGSMITH_PROJECT` (or `LANGCHAIN_PROJECT`)
+   - `LANGSMITH_ENDPOINT`/`LANGCHAIN_ENDPOINT`
+   - `LANGSMITH_TRACING`, `LANGSMITH_TRACING_V2`, or `LANGCHAIN_TRACING_V2`
+
+3. Run Codex as usual. Each turn produces a root trace that captures:
+
+   - The original user prompt and Codex configuration metadata (model, sandbox mode, working directory, structured output schema, etc.)
+   - Planning artefacts such as to-do lists and reasoning summaries
+   - Every command execution, MCP tool invocation, file change set, and web search request (including outputs and exit statuses)
+   - Final assistant messages and token usage
+   - Errors surfaced by the agent or turn failures
+
+If the `langsmith` package is not installed, the SDK gracefully falls back to direct HTTPS ingestion. Failures to publish traces are logged as warnings but never interrupt the Codex run.
+
 ## Model Context Protocol (MCP)
 
 The Codex CLI and IDE extension is a MCP client which means that it can be configured to connect to MCP servers. For more information, refer to the [`config docs`](./config.md#connecting-to-mcp-servers).
