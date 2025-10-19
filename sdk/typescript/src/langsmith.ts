@@ -52,6 +52,7 @@ type LangSmithRunPayload = {
   tags?: string[];
   extra?: { metadata?: Record<string, unknown> };
   execution_order?: number;
+  dotted_order?: string;
   child_runs?: never;
   logs?: string;
 };
@@ -67,6 +68,7 @@ type RunRecord = {
   endTime: Date | null;
   parentId: string | null;
   order: number;
+  parentDottedOrder: string | null;
   tags: string[];
   error?: string;
   logs: string[];
@@ -174,6 +176,7 @@ class LangSmithTracer {
       endTime: null,
       parentId: null,
       order: 0,
+      parentDottedOrder: null,
       tags: context.tags,
       logs: [],
     };
@@ -254,6 +257,7 @@ class LangSmithTracer {
     if (existing) {
       return existing;
     }
+    const sequence = this.orderCounter++;
     const run: RunRecord = {
       id: randomUUID(),
       name: describeItem(item),
@@ -267,7 +271,8 @@ class LangSmithTracer {
       startTime: null,
       endTime: null,
       parentId: this.root.id,
-      order: this.orderCounter++,
+      order: sequence,
+      parentDottedOrder: null, // Will be set when we construct dotted_order
       tags: this.tags,
       logs: [],
     };
@@ -337,8 +342,16 @@ class LangSmithTracer {
     }
 
     const traceId = this.root.id;
-    const runs: LangSmithRunPayload[] = [toPayload(this.root, traceId)];
+    
+    // Convert root to payload first to get its dotted_order
+    const rootPayload = toPayload(this.root, traceId);
+    const runs: LangSmithRunPayload[] = [rootPayload];
+    
+    // Set parent dotted_order for child runs before converting to payload
     for (const run of this.completedRuns.sort((a, b) => a.order - b.order)) {
+      if (run.parentId === this.root.id) {
+        run.parentDottedOrder = rootPayload.dotted_order ?? null;
+      }
       runs.push(toPayload(run, traceId));
     }
 
@@ -397,10 +410,8 @@ class LangSmithClient implements LangSmithClientLike {
   }
 
   async sendRuns(runs: LangSmithRunPayload[], traceId: string): Promise<void> {
-    if (this.client && isLangSmithClient(this.client)) {
-      await this.sendWithSdk(this.client, runs, traceId);
-      return;
-    }
+    // Always use HTTP ingestion to ensure dotted_order is properly sent
+    // The langsmith SDK may not forward dotted_order correctly in older versions
     await this.sendWithHttp(runs, traceId);
   }
 
@@ -412,6 +423,10 @@ class LangSmithClient implements LangSmithClientLike {
         tags: run.tags ?? this.tags,
         extra: mergeMetadata(run.extra, this.metadata),
       };
+      const debugFlag = process.env?.["DEBUG_LANGSMITH_PAYLOAD"];
+      if (debugFlag === "1") {
+        console.log("LangSmith SDK payload", JSON.stringify(payload));
+      }
       if (this.project) {
         const attempts: Array<() => Promise<unknown>> = [
           () => client.createRun(payload, { projectName: this.project ?? undefined }),
@@ -445,6 +460,10 @@ class LangSmithClient implements LangSmithClientLike {
         project_name: this.project ?? undefined,
         trace_id: traceId,
       };
+      const debugFlag = process.env?.["DEBUG_LANGSMITH_PAYLOAD"];
+      if (debugFlag === "1") {
+        console.log("LangSmith HTTP payload", JSON.stringify(payload));
+      }
       const url = new URL("/api/v1/runs", this.apiUrl);
       if (this.project) {
         url.searchParams.set("project_name", this.project);
@@ -472,10 +491,6 @@ class LangSmithClient implements LangSmithClientLike {
 type LangSmithSdk = {
   createRun: (run: Record<string, unknown>, options?: Record<string, unknown>) => Promise<unknown>;
 };
-
-function isLangSmithClient(candidate: unknown): candidate is LangSmithSdk {
-  return Boolean(candidate && typeof (candidate as LangSmithSdk).createRun === "function");
-}
 
 function mergeMetadata(
   runExtra: LangSmithRunPayload["extra"],
@@ -626,6 +641,14 @@ function applyError(run: RunRecord, item: ErrorItem): void {
 function toPayload(run: RunRecord, traceId: string): LangSmithRunPayload {
   const start = run.startTime ?? new Date();
   const end = run.endTime ?? start;
+  
+  // Build dotted_order string in LangSmith format:
+  // Root: "20240429T004912090000Z<run_id>"
+  // Child: "<parent_dotted_order>.20240429T004912090000Z<run_id>"
+  const timestamp = start.toISOString().replace(/[-:]/g, "").replace(/\.\d+Z$/, "Z");
+  const segment = `${timestamp}${run.id}`;
+  const dottedOrder = run.parentDottedOrder ? `${run.parentDottedOrder}.${segment}` : segment;
+  
   return {
     id: run.id,
     name: run.name,
@@ -640,11 +663,10 @@ function toPayload(run: RunRecord, traceId: string): LangSmithRunPayload {
     tags: run.tags,
     extra: Object.keys(run.metadata).length ? { metadata: run.metadata } : undefined,
     execution_order: run.order,
+    dotted_order: dottedOrder,
     logs: run.logs.length ? run.logs.join("\n") : undefined,
   };
-}
-
-function describeError(error: unknown): string {
+}function describeError(error: unknown): string {
   if (error instanceof Error) {
     return error.message;
   }
